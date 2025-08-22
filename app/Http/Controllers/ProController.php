@@ -36,7 +36,7 @@ class ProController extends Controller
 
         $currentPage = intval(($offset / $limit) + 1);
         $totalPages = (int) ceil($totalEntries / $limit);
-        $nextPage = $
+        $nextPage = $totalPages;
 
 
 

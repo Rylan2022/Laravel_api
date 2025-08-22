@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\ApiResponse;
 use App\Models\Post;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Validation\ValidationException;
+use Exception;
 
 class PostController extends Controller
 {
@@ -14,41 +18,60 @@ class PostController extends Controller
      */
     public function index(Request $request)
     {
-        $limit = (int) $request->get('limit', 10);
-        $offset = (int) $request->get('offset', 0);
-        $orderBy = $request->get('order_by', 'created_at');
-        $orderDir = $request->get('order_dir', 'desc');
+        try {
+            $limit    = (int) $request->get('limit', 10);
+            $offset   = (int) $request->get('offset', 0);
+            $orderBy  = $request->get('order_by', 'created_at');
 
-        $query = Post::query();
+            $query = Post::query();
 
-        if ($request->has('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('title', 'like', "%{$request->search}%")
-                  ->orWhere('content', 'like', "%{$request->search}%");
-            });
+            if ($request->has('search')) {
+                $search = $request->input('search');
+                $query->where(function ($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                        ->orWhere('content', 'like', "%{$search}%");
+                });
+            }
+
+            $totalEntries = $query->count();
+
+            if ($totalEntries === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No posts found',
+                    'data'    => []
+                ], 404);
+            }
+
+            $posts = $query->orderBy($orderBy)
+                ->skip($offset)
+                ->take($limit)
+                ->get();
+
+            $currentPage = intval(($offset / $limit) + 1);
+            $totalPages  = (int) ceil($totalEntries / $limit);
+            $nextPage    = $currentPage < $totalPages ? $currentPage + 1 : null;
+
+
+            return ApiResponse::success(
+                $posts,
+                'Posts fetched successfully',
+                200,
+                [
+                    'total_entries' => $totalEntries,
+                    'total_pages'   => $totalPages,
+                    'current_page'  => $currentPage,
+                    'limit'         => $limit,
+                    'next_page'     => $nextPage,
+                ]
+            );
+        } catch (Exception $e) {
+            return ApiResponse::error(
+                'Failed to fetch posts',
+                500,
+                env('APP_DEBUG') ? $e->getMessage() : []
+            );
         }
-
-        $totalEntries = $query->count();
-
-        $posts = $query->orderBy($orderBy, $orderDir)
-            ->skip($offset)
-            ->take($limit)
-            ->get();
-
-        $currentPage = intval(($offset / $limit) + 1);
-        $totalPages = (int) ceil($totalEntries / $limit);
-        $nextPage = $currentPage < $totalPages ? $currentPage + 1 : null;
-
-        return response()->json([
-            'meta' => [
-                'total_entries' => $totalEntries,
-                'total_pages'   => $totalPages,
-                'current_page'  => $currentPage,
-                'limit'         => $limit,
-                'next_page'     => $nextPage,
-            ],
-            'data' => $posts
-        ], 200);
     }
 
     /**
@@ -56,24 +79,46 @@ class PostController extends Controller
      */
     public function store(Request $request, $id = null)
     {
-        $rules = [
-            'title' => ['required', Rule::unique('posts', 'title')->ignore($id)],
-            'content' => 'required',
-        ];
+        try {
+            $rules = [
+                'title'   => ['required', Rule::unique('posts', 'title')->ignore($id)],
+                'content' => 'required',
+            ];
 
-        $request->validate($rules, [
-            'title.required'  => 'A title is required.',
-            'title.unique'    => 'This title already exists.',
-            'content.required'=> 'Content cannot be empty.',
-        ]);
+            $messages = [
+                'title.required'   => 'A title is required.',
+                'title.unique'     => 'This title already exists.',
+                'content.required' => 'Content cannot be empty.',
+            ];
 
-        if ($id) {
-            $post = Post::findOrFail($id);
-            $post->update($request->all());
-            return response()->json(['message' => 'Post updated successfully', 'data' => $post]);
-        } else {
-            $post = Post::create($request->all());
-            return response()->json(['message' => 'Post created successfully', 'data' => $post], 201);
+            $request->validate($rules, $messages);
+
+            $data = [
+                'title'   => $request->input('title'),
+                'content' => $request->input('content'),
+            ];
+
+            if ($id) {
+                $post = Post::findOrFail($id);
+                $post->update($data);
+
+
+                return ApiResponse::success($post, 'Post updated successfully', 200);
+            }
+
+            $post = Post::create($data);
+
+            return ApiResponse::success($post, 'Post created successfully', 201);
+        } catch (ValidationException $e) {
+            return ApiResponse::error('Validation failed', 422, $e->errors());
+        } catch (ModelNotFoundException $e) {
+            return ApiResponse::error('Post not found for update', 404);
+        } catch (Exception $e) {
+            return ApiResponse::error(
+                'Failed to save post',
+                500,
+                env('APP_DEBUG') ? $e->getMessage() : []
+            );
         }
     }
 
@@ -82,7 +127,19 @@ class PostController extends Controller
      */
     public function show($id)
     {
-        return response()->json(Post::findOrFail($id));
+        try {
+            $post = Post::findOrFail($id);
+
+            return ApiResponse::success($post, 'Post fetched successfully');
+        } catch (ModelNotFoundException $e) {
+            return ApiResponse::error("Post with ID {$id} not found", 404);
+        } catch (Exception $e) {
+            return ApiResponse::error(
+                'Failed to fetch post',
+                500,
+                env('APP_DEBUG') ? $e->getMessage() : []
+            );
+        }
     }
 
     /**
@@ -90,7 +147,7 @@ class PostController extends Controller
      */
     public function update(Request $request, $id)
     {
-        return $this->store($request, $id); // re-use store logic
+        return $this->store($request, $id); // Reuse store logic
     }
 
     /**
@@ -98,7 +155,19 @@ class PostController extends Controller
      */
     public function destroy($id)
     {
-        Post::destroy($id);
-        return response()->json(['message' => 'Post deleted successfully']);
+        try {
+            $post = Post::findOrFail($id);
+            $post->delete();
+
+            return ApiResponse::success([], "Post with ID {$id} deleted successfully");
+        } catch (ModelNotFoundException $e) {
+            return ApiResponse::error("Post with ID {$id} not found", 404);
+        } catch (Exception $e) {
+            return ApiResponse::error(
+                'Failed to delete post',
+                500,
+                env('APP_DEBUG') ? $e->getMessage() : []
+            );
+        }
     }
 }
