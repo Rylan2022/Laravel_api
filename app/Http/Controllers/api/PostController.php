@@ -7,9 +7,10 @@ use App\Helpers\ApiResponse;
 use App\Models\Post;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Validation\ValidationException;
+// use Illuminate\Database\Eloquent\ModelNotFoundException;
+// use Illuminate\Validation\ValidationException;
 use Exception;
+use Illuminate\Support\Facades\DB;
 
 class PostController extends Controller
 {
@@ -21,7 +22,8 @@ class PostController extends Controller
         try {
             $limit    = (int) $request->get('limit', 10);
             $offset   = (int) $request->get('offset', 0);
-            $orderBy  = $request->get('order_by', 'created_at');
+            $orderBy  = $request->get('order_by', 'id');
+            $orderbyDesc  = $request->get('$orderbyDesc', 'desc');
 
             $query = Post::query();
 
@@ -36,14 +38,10 @@ class PostController extends Controller
             $totalEntries = $query->count();
 
             if ($totalEntries === 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No posts found',
-                    'data'    => []
-                ], 404);
+                return ApiResponse::error('No posts found', 404, []);
             }
 
-            $posts = $query->orderBy($orderBy)
+            $posts = $query->orderBy($orderBy, $orderbyDesc)
                 ->skip($offset)
                 ->take($limit)
                 ->get();
@@ -79,6 +77,7 @@ class PostController extends Controller
      */
     public function store(Request $request, $id = null)
     {
+        DB::beginTransaction();
         try {
             $rules = [
                 'title_data'   => ['required', Rule::unique('posts', 'title')->ignore($id)],
@@ -101,24 +100,20 @@ class PostController extends Controller
             if ($id) {
                 $post = Post::findOrFail($id);
                 $post->update($data);
-
-
+                DB::commit();
                 return ApiResponse::success($post, 'Post updated successfully', 200);
             }
 
             $post = Post::create($data);
+            DB::commit();
 
             return ApiResponse::success($post, 'Post created successfully', 201);
-        } catch (ValidationException $e) {
-            return ApiResponse::error('Validation failed', 422, $e->errors());
-        } catch (ModelNotFoundException $e) {
-            return ApiResponse::error('Post not found for update', 404);
         } catch (Exception $e) {
-            return ApiResponse::error(
-                'Failed to save post',
-                500,
-                env('APP_DEBUG') ? $e->getMessage() : []
-            );
+            DB::rollBack();
+            return response()->json([
+                'error' => true,
+                'message' => env('APP_DEBUG') ? $e->getMessage() : 'Faild to save post',
+            ], 500);
         }
     }
 
@@ -127,28 +122,28 @@ class PostController extends Controller
      */
     public function show($id)
     {
+        DB::beginTransaction();
         try {
             $post = Post::findOrFail($id);
 
+            DB::commit();
             return ApiResponse::success($post, 'Post fetched successfully');
-        } catch (ModelNotFoundException $e) {
-            return ApiResponse::error("Post with ID {$id} not found", 404);
         } catch (Exception $e) {
-            return ApiResponse::error(
-                'Failed to fetch post',
-                500,
-                env('APP_DEBUG') ? $e->getMessage() : []
-            );
+            DB::rollBack();
+            return response()->json([
+                'error' => true,
+                'message' => env('APP_DEBUG') ? $e->getMessage() : "Post with ID {$id} not found"
+            ], 404);
         }
     }
 
     /**
      * Update a post (PUT).
      */
-    public function update(Request $request, $id)
-    {
-        return $this->store($request, $id); // Reuse store logic
-    }
+    // public function update(Request $request, $id)
+    // {
+    //     return $this->store($request, $id); // Reuse store logic
+    // }
 
     /**
      * Delete a post.
@@ -160,14 +155,11 @@ class PostController extends Controller
             $post->delete();
 
             return ApiResponse::success([], "Post with ID {$id} deleted successfully");
-        } catch (ModelNotFoundException $e) {
-            return ApiResponse::error("Post with ID {$id} not found", 404);
         } catch (Exception $e) {
-            return ApiResponse::error(
-                'Failed to delete post',
-                500,
-                env('APP_DEBUG') ? $e->getMessage() : []
-            );
+            return response()->json([
+                'error' => true,
+                'message' => env('APP_DEBUG') ? $e->getMessage() : "Failed to delete post"
+            ], 500);
         }
     }
 }
