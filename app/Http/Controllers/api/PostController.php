@@ -81,21 +81,21 @@ class PostController extends Controller
     {
         try {
             $rules = [
-                'title'   => ['required', Rule::unique('posts', 'title')->ignore($id)],
-                'content' => 'required',
+                'title_data'   => ['required', Rule::unique('posts', 'title')->ignore($id)],
+                'content_data' => 'required',
             ];
 
             $messages = [
-                'title.required'   => 'A title is required.',
-                'title.unique'     => 'This title already exists.',
-                'content.required' => 'Content cannot be empty.',
+                'title_data.required'   => 'A title is required.',
+                'title_data.unique'     => 'This title already exists.',
+                'content_data.required' => 'Content cannot be empty.',
             ];
 
             $request->validate($rules, $messages);
 
             $data = [
-                'title'   => $request->input('title'),
-                'content' => $request->input('content'),
+                'title'   => $request->input('title_data'),
+                'content' => $request->input('content_data'),
             ];
 
             if ($id) {
