@@ -12,7 +12,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+         $middleware->use([
+            // \App\Http\Middleware\TrustProxies::class,
+        ]);
+        $middleware->alias([
+            'auth'       => \App\Http\Middleware\Authenticate::class,
+            'jwt.auth'   => \Tymon\JWTAuth\Http\Middleware\Authenticate::class,
+            'jwt.refresh'=> \Tymon\JWTAuth\Http\Middleware\RefreshToken::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
