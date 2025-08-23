@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 use Exception;
 use Illuminate\Support\Facades\DB;
 
-class PostController extends Controller
+class PostController extends Controller 
 {
     /**
      * Display a listing of posts with pagination, search, sorting.

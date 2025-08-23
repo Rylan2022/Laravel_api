@@ -11,14 +11,9 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware): void {
-         $middleware->use([
-            // \App\Http\Middleware\TrustProxies::class,
-        ]);
+    ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'auth'       => \App\Http\Middleware\Authenticate::class,
-            'jwt.auth'   => \Tymon\JWTAuth\Http\Middleware\Authenticate::class,
-            'jwt.refresh'=> \Tymon\JWTAuth\Http\Middleware\RefreshToken::class,
+            'auth' => \App\Http\Middleware\Authenticate::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

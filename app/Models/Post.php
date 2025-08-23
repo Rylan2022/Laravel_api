@@ -6,8 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Post extends Model
 {
-    protected $fillable = ['title', 'content']; //gurded
-    // JWTm
+    protected $fillable = ['title', 'content']; 
+    //gurded
 
 }
+
+protected $gurrded;
 
