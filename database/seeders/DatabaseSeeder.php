@@ -18,6 +18,13 @@ class DatabaseSeeder extends Seeder
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
+            'password' => bcrypt('password'),
         ]);
+
+         // Create 10 users each with 3 posts
+        User::factory()
+            ->hasPosts(3)  // each user gets 3 posts
+            ->count(10)    // total 10 users
+            ->create();
     }
 }

@@ -7,9 +7,8 @@ use App\Helpers\ApiResponse;
 use App\Models\Post;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-// use Illuminate\Database\Eloquent\ModelNotFoundException;
-// use Illuminate\Validation\ValidationException;
 use Exception;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class PostController extends Controller 
@@ -25,7 +24,7 @@ class PostController extends Controller
             $orderBy  = $request->get('order_by', 'id');
             $orderbyDesc  = $request->get('$orderbyDesc', 'desc');
 
-            $query = Post::query();
+            $query = Post::query('user');
 
             if ($request->has('search')) {
                 $search = $request->input('search');
@@ -41,7 +40,8 @@ class PostController extends Controller
                 return ApiResponse::error('No posts found', 404, []);
             }
 
-            $posts = $query->orderBy($orderBy, $orderbyDesc)
+            $posts = $query->with('user')
+                ->orderBy($orderBy, $orderbyDesc)
                 ->skip($offset)
                 ->take($limit)
                 ->get();
@@ -95,16 +95,23 @@ class PostController extends Controller
             $data = [
                 'title'   => $request->input('title_data'),
                 'content' => $request->input('content_data'),
+                'user_id' => Auth::id(),
             ];
 
             if ($id) {
                 $post = Post::findOrFail($id);
+                if($post->user_id !== $request->user()->id){
+                    DB::rollBack();
+                    return ApiResponse::error('Unauthorized to update this post', 403);
+                }
                 $post->update($data);
                 DB::commit();
-                return ApiResponse::success($post, 'Post updated successfully', 200);
+                return ApiResponse::success($post->load('user'),
+                'Post updated successfully',
+                 200);
             }
 
-            $post = Post::create($data);
+            $post = $request->user()->posts()->create($data);
             DB::commit();
 
             return ApiResponse::success($post, 'Post created successfully', 201);
@@ -124,7 +131,7 @@ class PostController extends Controller
     {
         DB::beginTransaction();
         try {
-            $post = Post::findOrFail($id);
+            $post = Post::with('user')->findOrFail($id);
 
             DB::commit();
             return ApiResponse::success($post, 'Post fetched successfully');
