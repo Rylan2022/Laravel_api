@@ -2,7 +2,7 @@
 
 namespace App\Helpers;
 
-class ApiResponse
+class ApiResponse 
 {
     public static function success($data = [], $message = 'Success', $code = 200, $meta = [])
     {

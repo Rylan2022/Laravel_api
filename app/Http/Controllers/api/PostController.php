@@ -158,7 +158,7 @@ class PostController extends Controller
     public function destroy($id)
     {
         try {
-            $post = Post::findOrFail($id);
+            $post = Post::findOrFail($id); 
             $post->delete();
 
             return ApiResponse::success([], "Post with ID {$id} deleted successfully");
