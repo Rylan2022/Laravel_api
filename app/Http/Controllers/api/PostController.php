@@ -37,7 +37,11 @@ class PostController extends Controller
             $totalEntries = $query->count();
 
             if ($totalEntries === 0) {
-                return ApiResponse::error('No posts found', 404, []);
+                return response()->json([
+                    'error' => true,
+                    'data' => "",
+                    "message" => "Posts Not Found."
+                ], 404);
             }
 
             $posts = $query->with('user')
@@ -50,25 +54,26 @@ class PostController extends Controller
             $totalPages  = (int) ceil($totalEntries / $limit);
             $nextPage    = $currentPage < $totalPages ? $currentPage + 1 : null;
 
-
-            return ApiResponse::success(
-                $posts,
-                'Posts fetched successfully',
-                200,
-                [
+            return response()->json([
+                    "status" =>"success",
+                    "message" => "Posts retrieved successfully",
+                    "data" => $posts,
+                    "pagination" => [
                     'total_entries' => $totalEntries,
                     'total_pages'   => $totalPages,
                     'current_page'  => $currentPage,
                     'limit'         => $limit,
                     'next_page'     => $nextPage,
-                ]
-            );
+                    ]
+                 ], 200);
+
+
         } catch (Exception $e) {
-            return ApiResponse::error(
-                'Failed to fetch posts',
-                500,
-                env('APP_DEBUG') ? $e->getMessage() : []
-            );
+            return response()->json([
+                'error' => true,
+                'data' => '',
+                'message' => $e->getMessage()
+            ], 400);
         }
     }
 
@@ -102,13 +107,19 @@ class PostController extends Controller
                 $post = Post::findOrFail($id);
                 if($post->user_id !== $request->user()->id){
                     DB::rollBack();
-                    return ApiResponse::error('Unauthorized to update this post', 403);
+                    return response()->json([
+                        'error' => true,
+                        'message' => 'Unauthorized to update this post',
+                    ],403);
                 }
+
+
                 $post->update($data);
                 DB::commit();
-                return ApiResponse::success($post->load('user'),
-                'Post updated successfully',
-                 200);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Post updated successfully',
+                 ], 200);
             }
 
             $post = $request->user()->posts()->create($data);
@@ -119,6 +130,7 @@ class PostController extends Controller
             DB::rollBack();
             return response()->json([
                 'error' => true,
+                'data' => '',
                 'message' => env('APP_DEBUG') ? $e->getMessage() : 'Faild to save post',
             ], 500);
         }
@@ -134,7 +146,11 @@ class PostController extends Controller
             $post = Post::with('user')->findOrFail($id);
 
             DB::commit();
-            return ApiResponse::success($post, 'Post fetched successfully');
+            return response()->json([
+                'success' => true,
+                'message' => 'Post fetched successfully',
+                'data' => $post
+            ]);
         } catch (Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -161,7 +177,10 @@ class PostController extends Controller
             $post = Post::findOrFail($id); 
             $post->delete();
 
-            return ApiResponse::success([], "Post with ID {$id} deleted successfully");
+                return response()->json([
+                'success' => true,
+                'message' => "Post with ID {$id} deleted successfully"
+            ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'error' => true,
