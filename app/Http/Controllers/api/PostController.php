@@ -163,10 +163,10 @@ class PostController extends Controller
     /**
      * Update a post (PUT).
      */
-    // public function update(Request $request, $id)
-    // {
-    //     return $this->store($request, $id); // Reuse store logic
-    // }
+    public function update(Request $request, $id)
+    {
+        return $this->store($request, $id); // Reuse store logic
+    }
 
     /**
      * Delete a post.
