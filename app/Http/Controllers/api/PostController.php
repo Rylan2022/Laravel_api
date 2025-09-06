@@ -161,7 +161,7 @@ class PostController extends Controller
     }
 
     /**
-     * Update a post (PUT).
+     * Update a post (PUT). 
      */
     public function update(Request $request, $id)
     {
